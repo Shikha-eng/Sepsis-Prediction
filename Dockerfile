@@ -18,6 +18,7 @@ COPY app/ ./app/
 # Copy trained model artifacts
 COPY models/ ./models/
 
+COPY index.html .
 # Expose port
 EXPOSE 8000
 
