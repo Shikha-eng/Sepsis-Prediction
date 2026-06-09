@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SepsisWatch — Early Warning System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Satoshi:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f1ea; --bg2:#e7dfd4; --bg3:#ddd2c4;
+    --border:rgba(0,0,0,0.08); --border-active:rgba(0,0,0,0.15);
+    --text:#171717; --text-dim:#8B8B8B; --text-mid:#4B4B4B;
+    --accent:#111111; --accent-dim:rgba(17,17,17,0.08);
+    --warn:#D97706; --warn-dim:rgba(217,119,6,0.12);
+    --danger:#DC2626; --danger-dim:rgba(220,38,38,0.12);
+    --critical:#EF4444; --critical-dim:rgba(239,68,68,0.12);
+    --low:#16A34A; --medium:#D97706; --high:#DC2626;
+    --r:8px; --r-lg:16px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Satoshi',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(17,17,17,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(17,17,17,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+  body::after { content:''; position:fixed; top:-200px; left:50%; transform:translateX(-50%); width:800px; height:400px; background:radial-gradient(ellipse,rgba(17,17,17,0.04) 0%,transparent 70%); pointer-events:none; z-index:0; }
+  .container { max-width:1100px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+  /* HEADER */
+  header { padding:28px 0 24px; border-bottom:1px solid var(--border); position:relative; z-index:1; }
+  .header-inner { display:flex; align-items:center; justify-content:space-between; }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-mark { width:36px; height:36px; border:1.5px solid var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+  .logo-mark::before { content:''; position:absolute; inset:0; background:var(--accent-dim); }
+  .logo-text { font-family:'Instrument Serif',serif; font-weight:400; font-size:18px; letter-spacing:-0.3px; }
+  .logo-text span { color:var(--accent); }
+  .header-badge { display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); background:var(--bg3); border:1px solid var(--border); padding:6px 12px; border-radius:99px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pulse-dot 2s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(.8);} }
+  .ecg-container { overflow:hidden; width:120px; height:28px; }
+  .ecg-line { stroke:var(--accent); stroke-width:1.5; fill:none; stroke-dasharray:300; stroke-dashoffset:300; animation:ecg-draw 2s ease-in-out infinite; }
+  @keyframes ecg-draw { 0%{stroke-dashoffset:300;opacity:.3;} 40%{stroke-dashoffset:0;opacity:1;} 80%{stroke-dashoffset:0;opacity:1;} 100%{stroke-dashoffset:-300;opacity:.3;} }
+
+  /* HERO */
+  .hero { padding:52px 0 44px; display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center; }
+  .hero-label { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--accent); letter-spacing:.15em; text-transform:uppercase; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .hero-label::before { content:''; width:24px; height:1px; background:var(--accent); }
+  h1 { font-family:'Instrument Serif',serif; font-weight:400; font-size:clamp(32px,4vw,44px); line-height:1.1; letter-spacing:-1px; margin-bottom:18px; }
+  h1 em { font-style:normal; color:var(--accent); }
+  .hero-desc { font-size:15px; color:var(--text-mid); line-height:1.7; max-width:420px; }
+  .hero-stats { display:flex; flex-direction:column; gap:12px; }
+  .stat-card { background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 22px; display:flex; align-items:center; justify-content:space-between; transition:border-color .2s; }
+  .stat-card:hover { border-color:var(--border-active); }
+  .stat-label { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
+  .stat-value { font-family:'Instrument Serif',serif; font-size:24px; font-weight:400; }
+  .stat-value.accent { color:var(--accent); }
+  .stat-bar { width:80px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:6px; }
+  .stat-fill { height:100%; border-radius:2px; background:var(--accent); }
+
+  /* LAYOUT */
+  .main-layout { display:grid; grid-template-columns:1fr 380px; gap:20px; padding-bottom:60px; }
+
+  /* FORM */
+  .form-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+  .panel-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .panel-title { font-family:'Instrument Serif',serif; font-weight:400; font-size:15px; }
+  .panel-subtitle { font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .section-tag { font-family:'JetBrains Mono',monospace; font-size:10px; padding:4px 10px; border-radius:99px; border:1px solid var(--border-active); color:var(--text-dim); }
+  .form-body { padding:24px; }
+  .field-group { margin-bottom:28px; }
+  .group-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:.15em; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .group-label::after { content:''; flex:1; height:1px; background:var(--accent-dim); }
+  .fields-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .fields-grid.four { grid-template-columns:repeat(4,1fr); }
+  .field label { display:block; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+  .field-wrap { position:relative; }
+  .field input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--r); padding:10px 36px 10px 12px; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text); outline:none; transition:border-color .2s, background .2s; }
+  .field input:focus { border-color:var(--accent); background:rgba(17,17,17,.04); }
+  .field input::placeholder { color:var(--text-dim); }
+  .field input.abnormal { border-color:var(--warn); background:var(--warn-dim); color:var(--warn); }
+  .field input.critical-val { border-color:var(--danger); background:var(--danger-dim); color:var(--danger); }
+  .field-unit { position:absolute; right:10px; top:50%; transform:translateY(-50%); font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); pointer-events:none; }
+  .submit-row { display:flex; gap:12px; }
+  .btn-predict { flex:1; padding:14px 24px; background:var(--accent); color:#FFFFFF; border:none; border-radius:var(--r); font-family:'Satoshi',sans-serif; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s,transform .15s; }
+  .btn-predict:hover { opacity:.9; transform:translateY(-1px); }
+  .btn-predict.loading { pointer-events:none; opacity:.7; }
+  .spinner { width:16px; height:16px; border:2px solid rgba(17,17,17,.2); border-top-color:#111111; border-radius:50%; animation:spin .7s linear infinite; display:none; }
+  .btn-predict.loading .spinner { display:block; }
+  .btn-predict.loading .btn-label { display:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .btn-clear { padding:14px 18px; background:transparent; color:var(--text-dim); border:1px solid var(--border); border-radius:var(--r); font-family:'Satoshi',sans-serif; font-size:13px; cursor:pointer; transition:border-color .2s,color .2s; }
+  .btn-clear:hover { border-color:var(--border-active); color:var(--text); }
+  .error-banner { background:var(--danger-dim); border:1px solid rgba(220,38,38,.3); border-radius:var(--r); padding:12px 16px; font-size:13px; color:var(--danger); display:none; margin-bottom:16px; }
+  .disclaimer { display:flex; align-items:flex-start; gap:10px; padding:14px 18px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); margin-top:16px; }
+  .disclaimer p { font-size:11px; color:var(--text-dim); line-height:1.6; }
+
+  /* RESULTS */
+  .results-panel { display:flex; flex-direction:column; gap:16px; }
+  .risk-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; transition:border-color .4s; }
+  .risk-card.LOW    { border-color:rgba(22,163,74,.4); }
+  .risk-card.MEDIUM { border-color:rgba(217,119,6,.35); }
+  .risk-card.HIGH   { border-color:rgba(220,38,38,.4); }
+  .risk-card.CRITICAL { border-color:rgba(239,68,68,.6); }
+  .risk-header { padding:20px 22px 16px; position:relative; overflow:hidden; }
+  .risk-header::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity .4s; }
+  .risk-card.LOW .risk-header::before    { background:linear-gradient(135deg,rgba(17,17,17,0.08),transparent); opacity:1; }
+  .risk-card.MEDIUM .risk-header::before { background:linear-gradient(135deg,var(--warn-dim),transparent); opacity:1; }
+  .risk-card.HIGH .risk-header::before   { background:linear-gradient(135deg,var(--danger-dim),transparent); opacity:1; }
+  .risk-card.CRITICAL .risk-header::before { background:linear-gradient(135deg,var(--critical-dim),transparent); opacity:1; }
+  .risk-level-label { font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.15em; text-transform:uppercase; margin-bottom:10px; color:var(--text-dim); position:relative; }
+  .risk-score-display { display:flex; align-items:flex-end; gap:10px; margin-bottom:12px; position:relative; }
+  .risk-score-num { font-family:'Instrument Serif',serif; font-weight:400; font-size:52px; line-height:1; transition:color .4s; }
+  .risk-card.LOW    .risk-score-num { color:var(--low); }
+  .risk-card.MEDIUM .risk-score-num { color:var(--medium); }
+  .risk-card.HIGH   .risk-score-num { color:var(--high); }
+  .risk-card.CRITICAL .risk-score-num { color:var(--critical); }
+  .risk-score-pct { font-family:'JetBrains Mono',monospace; font-size:18px; color:var(--text-dim); padding-bottom:8px; }
+  .risk-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:99px; font-family:'Instrument Serif',serif; font-weight:400; font-size:12px; letter-spacing:.5px; }
+  .risk-card.LOW    .risk-badge { background:rgba(22,163,74,.15); color:var(--low); }
+  .risk-card.MEDIUM .risk-badge { background:rgba(217,119,6,.15); color:var(--medium); }
+  .risk-card.HIGH   .risk-badge { background:rgba(220,38,38,.15); color:var(--high); }
+  .risk-card.CRITICAL .risk-badge { background:rgba(239,68,68,.15); color:var(--critical); }}
+  .risk-gauge { padding:0 22px 20px; }
+  .gauge-track { height:6px; background:var(--bg); border-radius:3px; overflow:hidden; margin-bottom:6px; }
+  .gauge-fill { height:100%; border-radius:3px; transition:width .8s cubic-bezier(.34,1.56,.64,1); width:0%; }
+  .risk-card.LOW    .gauge-fill { background:var(--low); }
+  .risk-card.MEDIUM .gauge-fill { background:var(--medium); }
+  .risk-card.HIGH   .gauge-fill { background:var(--high); }
+  .risk-card.CRITICAL .gauge-fill { background:var(--critical); }
+  .gauge-ticks { display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-dim); }
+  .confidence-text { border-top:1px solid var(--border); }
+
+  /* SHAP */
+  .shap-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+  .shap-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .shap-title { font-family:'Instrument Serif',serif; font-weight:400; font-size:13px; }
+  .shap-subtitle { font-size:11px; color:var(--text-dim); margin-top:1px; }
+  .shap-list { padding:16px 20px; display:flex; flex-direction:column; gap:10px; }
+  .shap-item { opacity:0; transform:translateX(12px); transition:opacity .3s, transform .3s; }
+  .shap-item.visible { opacity:1; transform:translateX(0); }
+  .shap-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+  .shap-feat { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); }
+  .shap-val { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--accent); }
+  .shap-val.neg { color:var(--text-dim); }
+  .shap-bar-track { height:3px; background:var(--bg); border-radius:2px; overflow:hidden; }
+  .shap-bar-fill { height:100%; border-radius:2px; width:0%; transition:width .6s cubic-bezier(.34,1.56,.64,1); background:var(--accent); }
+  .shap-bar-fill.neg { background:var(--text-dim); }
+  .shap-explanation { font-size:11px; color:var(--text-dim); margin-top:3px; line-height:1.4; }
+
+  /* PLACEHOLDER */
+  .placeholder-state { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px; gap:12px; }
+  .placeholder-icon { width:52px; height:52px; border:1.5px solid var(--border-active); border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:8px; position:relative; }
+  .placeholder-icon::before { content:''; position:absolute; inset:-4px; border-radius:50%; border:1px solid var(--border); }
+  .placeholder-title { font-family:'Instrument Serif',serif; font-weight:400; font-size:14px; color:var(--text-mid); }
+  .placeholder-sub { font-size:12px; color:var(--text-dim); max-width:200px; line-height:1.6; }
+
+  /* ANIMATIONS */
+  .fade-up { opacity:0; transform:translateY(16px); animation:fadeUp .5s ease forwards; }
+  @keyframes fadeUp { to { opacity:1; transform:translateY(0); } }
+  .fade-up:nth-child(1) { animation-delay:.05s; }
+  .fade-up:nth-child(2) { animation-delay:.1s; }
+
+  @media(max-width:900px) {
+    .hero { grid-template-columns:1fr; gap:28px; }
+    .main-layout { grid-template-columns:1fr; }
+    .fields-grid { grid-template-columns:repeat(2,1fr); }
+    .fields-grid.four { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+            <polyline points="0,6 4,6 6,1 8,11 10,6 12,6 14,4 16,8 18,6 20,6" stroke="#111111" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="logo-text">Sepsis<span>Watch</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="ecg-container">
+          <svg viewBox="0 0 120 28" width="120" height="28">
+            <polyline class="ecg-line" points="0,14 20,14 28,14 32,2 36,26 40,14 50,14 56,8 60,20 64,14 80,14 88,14 92,2 96,26 100,14 110,14 120,14"/>
+          </svg>
+        </div>
+        <div class="header-badge">
+          <div class="dot"></div>
+          PhysioNet 2019 · AUROC 0.812
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <div class="fade-up">
+      <div class="hero-label">ICU Early Warning System</div>
+      <h1>Predict sepsis <em>6 hours</em> before onset</h1>
+      <p class="hero-desc">XGBoost model trained on 40,336 ICU patients. Enter current vitals and lab values for an instant risk score with SHAP-based clinical explanations.</p>
+    </div>
+    <div class="hero-stats fade-up">
+      <div class="stat-card">
+        <div>
+          <div class="stat-label">AUROC</div>
+          <div class="stat-value accent">0.812</div>
+          <div class="stat-bar"><div class="stat-fill" style="width:81.2%"></div></div>
+        </div>
+        <div style="text-align:right">
+          <div class="stat-label">Target</div>
+          <div class="stat-value" style="font-size:16px;color:var(--text-dim)">&gt; 0.80</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div>
+          <div class="stat-label">Recall</div>
+          <div class="stat-value" style="color:var(--warn)">75.0%</div>
+          <div class="stat-bar"><div class="stat-fill" style="width:75%;background:var(--warn)"></div></div>
+        </div>
+        <div style="text-align:right">
+          <div class="stat-label">Patients</div>
+          <div class="stat-value" style="font-size:16px;color:var(--text-dim)">40,336</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="main-layout">
+
+    <!-- Input Form -->
+    <div class="form-panel fade-up">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Patient Vitals Input</div>
+          <div class="panel-subtitle">Enter current ICU readings</div>
+        </div>
+        <span class="section-tag">Single timepoint</span>
+      </div>
+      <div class="form-body">
+        <div id="error-banner" class="error-banner"></div>
+
+        <div class="field-group">
+          <div class="group-label">Vital Signs</div>
+          <div class="fields-grid">
+            <div class="field">
+              <label>Heart Rate</label>
+              <div class="field-wrap">
+                <input type="number" id="HR" placeholder="80" oninput="checkVital(this,'HR')">
+                <span class="field-unit">bpm</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>O₂ Saturation</label>
+              <div class="field-wrap">
+                <input type="number" id="O2Sat" placeholder="98" oninput="checkVital(this,'O2Sat')">
+                <span class="field-unit">%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Temperature</label>
+              <div class="field-wrap">
+                <input type="number" id="Temp" placeholder="37.0" step="0.1" oninput="checkVital(this,'Temp')">
+                <span class="field-unit">°C</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Systolic BP</label>
+              <div class="field-wrap">
+                <input type="number" id="SBP" placeholder="120" oninput="checkVital(this,'SBP')">
+                <span class="field-unit">mmHg</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Mean Art. Press.</label>
+              <div class="field-wrap">
+                <input type="number" id="MAP" placeholder="93" oninput="checkVital(this,'MAP')">
+                <span class="field-unit">mmHg</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Resp. Rate</label>
+              <div class="field-wrap">
+                <input type="number" id="Resp" placeholder="16" oninput="checkVital(this,'Resp')">
+                <span class="field-unit">/min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="group-label">Lab Values <span style="color:var(--text-dim);font-size:9px;letter-spacing:.05em;text-transform:none;font-family:'Manrope'>"(optional — improves accuracy)</span></div>
+          <div class="fields-grid four">
+            <div class="field">
+              <label>Lactate</label>
+              <div class="field-wrap">
+                <input type="number" id="Lactate" placeholder="1.5" step="0.1" oninput="checkVital(this,'Lactate')">
+                <span class="field-unit">mM</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>WBC</label>
+              <div class="field-wrap">
+                <input type="number" id="WBC" placeholder="9.0" step="0.1" oninput="checkVital(this,'WBC')">
+                <span class="field-unit">k/µL</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Creatinine</label>
+              <div class="field-wrap">
+                <input type="number" id="Creatinine" placeholder="0.9" step="0.1" oninput="checkVital(this,'Creatinine')">
+                <span class="field-unit">mg/dL</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Platelets</label>
+              <div class="field-wrap">
+                <input type="number" id="Platelets" placeholder="220">
+                <span class="field-unit">k/µL</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>BUN</label>
+              <div class="field-wrap">
+                <input type="number" id="BUN" placeholder="18">
+                <span class="field-unit">mg/dL</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>DBP</label>
+              <div class="field-wrap">
+                <input type="number" id="DBP" placeholder="80">
+                <span class="field-unit">mmHg</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Age</label>
+              <div class="field-wrap">
+                <input type="number" id="Age" placeholder="60">
+                <span class="field-unit">yrs</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Gender</label>
+              <div class="field-wrap">
+                <input type="number" id="Gender" placeholder="0" min="0" max="1">
+                <span class="field-unit">0/1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn-predict" id="submitBtn" onclick="runPrediction()">
+            <span class="btn-label">Assess Sepsis Risk →</span>
+            <div class="spinner"></div>
+          </button>
+          <button class="btn-clear" onclick="clearForm()">Clear</button>
+        </div>
+        <div class="disclaimer">
+          <span style="font-size:14px;flex-shrink:0;margin-top:1px">⚠</span>
+          <p>For research and educational purposes only. Not a certified medical device. Always apply qualified clinical judgment.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel">
+      <div class="risk-card" id="riskCard">
+        <div class="risk-header">
+          <div class="risk-level-label">SEPSIS RISK SCORE</div>
+          <div class="risk-score-display">
+            <div class="risk-score-num" id="scoreNum">—</div>
+            <div class="risk-score-pct" id="scorePct"></div>
+          </div>
+          <div id="riskBadge"></div>
+        </div>
+        <div class="risk-gauge">
+          <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
+          <div class="gauge-ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+        </div>
+        <div class="confidence-text" id="confidenceText">
+          <div class="placeholder-state">
+            <div class="placeholder-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="11" r="8" stroke="var(--text-dim)" stroke-width="1.2"/>
+                <polyline points="7,11 9,11 10,7 12,15 13,11 15,11" stroke="var(--accent)" stroke-width="1.2" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </div>
+            <div class="placeholder-title">Awaiting Input</div>
+            <div class="placeholder-sub">Enter patient vitals and click Assess to see the risk prediction.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shap-panel" id="shapPanel" style="display:none">
+        <div class="shap-header">
+          <div>
+            <div class="shap-title">Risk Drivers</div>
+            <div class="shap-subtitle">SHAP feature contributions</div>
+          </div>
+          <span class="section-tag">Top 5</span>
+        </div>
+        <div class="shap-list" id="shapList"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────
+  // Use relative URLs so it works from any domain/port
+  const API_URL = window.location.origin;
+
+  const thresholds = {
+    HR:         { warn:[90,120],  crit:[120,300] },
+    O2Sat:      { warn:[93,96],   crit:[0,93]    },
+    Temp:       { warn:[38,39],   crit:[39,45]   },
+    SBP:        { warn:[90,100],  crit:[0,90]    },
+    MAP:        { warn:[65,70],   crit:[0,65]    },
+    Resp:       { warn:[20,25],   crit:[25,60]   },
+    Lactate:    { warn:[2,4],     crit:[4,20]    },
+    Creatinine: { warn:[1.2,2],   crit:[2,20]    },
+  };
+
+  // ── Real-time vital highlighting ────────────────────────────
+  function checkVital(el, key) {
+    const v = parseFloat(el.value);
+    el.classList.remove('abnormal','critical-val');
+    if (!isNaN(v) && thresholds[key]) {
+      const { warn, crit } = thresholds[key];
+      if (v >= crit[0] && v <= crit[1]) el.classList.add('critical-val');
+      else if (v >= warn[0] && v <= warn[1]) el.classList.add('abnormal');
+    }
+  }
+
+  function getVal(id) {
+    const v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? null : v;
+  }
+
+  function clearForm() {
+    ['HR','O2Sat','Temp','SBP','MAP','Resp','Lactate','WBC',
+     'Creatinine','Platelets','BUN','DBP','Age','Gender'].forEach(id => {
+      const el = document.getElementById(id);
+      el.value = '';
+      el.classList.remove('abnormal','critical-val');
+    });
+    resetResults();
+    document.getElementById('error-banner').style.display = 'none';
+  }
+
+  function resetResults() {
+    document.getElementById('riskCard').className = 'risk-card';
+    document.getElementById('scoreNum').textContent = '—';
+    document.getElementById('scorePct').textContent = '';
+    document.getElementById('riskBadge').innerHTML = '';
+    document.getElementById('gaugeFill').style.width = '0%';
+    document.getElementById('confidenceText').innerHTML = `
+      <div class="placeholder-state">
+        <div class="placeholder-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="var(--text-dim)" stroke-width="1.2"/>
+            <polyline points="7,11 9,11 10,7 12,15 13,11 15,11" stroke="var(--accent)" stroke-width="1.2" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="placeholder-title">Awaiting Input</div>
+        <div class="placeholder-sub">Enter patient vitals and click Assess to see the risk prediction.</div>
+      </div>`;
+    document.getElementById('shapPanel').style.display = 'none';
+  }
+
+  // ── Main prediction call ─────────────────────────────────────
+  async function runPrediction() {
+    const required = ['HR','O2Sat','Temp','SBP','MAP','Resp'];
+    const missing = required.filter(id => !getVal(id));
+    const err = document.getElementById('error-banner');
+
+    if (missing.length) {
+      err.style.display = 'block';
+      err.textContent = `Missing required vitals: ${missing.join(', ')}`;
+      return;
+    }
+    err.style.display = 'none';
+
+    // Build payload with required fields always included (with defaults if empty)
+    const payload = {
+      HR: getVal('HR'), 
+      O2Sat: getVal('O2Sat'), 
+      Temp: getVal('Temp'),
+      SBP: getVal('SBP'), 
+      MAP: getVal('MAP'), 
+      DBP: getVal('DBP') !== null ? getVal('DBP') : 80,        // Required, default to 80
+      Resp: getVal('Resp'),
+      Age: getVal('Age') !== null ? getVal('Age') : 60,        // Required, default to 60
+      Gender: getVal('Gender') !== null ? getVal('Gender') : 0 // Required, default to 0
+    };
+    
+    // Add optional fields only if provided
+    ['Lactate','WBC','Creatinine','Platelets','BUN'].forEach(k => {
+      const v = getVal(k);
+      if (v !== null) payload[k] = v;
+    });
+
+    const btn = document.getElementById('submitBtn');
+    btn.classList.add('loading');
+
+    console.log('📊 Sending payload:', payload);
+    console.log('📍 Target URL:', `${API_URL}/predict`);
+
+    try {
+      const res = await fetch(`${API_URL}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      console.log('Response status:', res.status);
+      
+      if (!res.ok) {
+        let errorMsg = `HTTP ${res.status}`;
+        try {
+          const errorData = await res.json();
+          console.log('Error response:', errorData);
+          if (errorData.detail) {
+            if (Array.isArray(errorData.detail)) {
+              errorMsg = errorData.detail.map(e => {
+                const field = e.loc ? e.loc[e.loc.length - 1] : 'unknown';
+                return `${field}: ${e.msg}`;
+              }).join(' | ');
+            } else {
+              errorMsg = errorData.detail;
+            }
+          }
+        } catch(parseErr) {
+          errorMsg = `HTTP ${res.status} - Could not parse response`;
+        }
+        throw new Error(errorMsg);
+      }
+      
+      const result = await res.json();
+      console.log('✅ Success:', result);
+      renderResult(result);
+    } catch(e) {
+      err.style.display = 'block';
+      err.textContent = `Validation Error: ${e.message}`;
+      console.error('❌ Full Error:', e);
+    } finally {
+      btn.classList.remove('loading');
+    }
+  }
+
+  // ── Render results ───────────────────────────────────────────
+  function renderResult(data) {
+    const { risk_score, risk_level, confidence, top_features } = data;
+    const pct = Math.round(risk_score * 100);
+
+    document.getElementById('riskCard').className = `risk-card ${risk_level}`;
+    document.getElementById('scoreNum').textContent = pct;
+    document.getElementById('scorePct').textContent = '%';
+
+    const icons = { LOW:'✓', MEDIUM:'△', HIGH:'⚠', CRITICAL:'✕' };
+    document.getElementById('riskBadge').innerHTML =
+      `<span class="risk-badge">${icons[risk_level]||'·'} ${risk_level}</span>`;
+
+    setTimeout(() => {
+      document.getElementById('gaugeFill').style.width = `${pct}%`;
+    }, 100);
+
+    document.getElementById('confidenceText').innerHTML =
+      `<div style="padding:14px 22px 18px;font-size:13px;color:var(--text-mid);line-height:1.6">${confidence}</div>`;
+
+    if (top_features && top_features.length) {
+      const panel = document.getElementById('shapPanel');
+      panel.style.display = 'block';
+      const list = document.getElementById('shapList');
+      const maxShap = Math.max(...top_features.map(f => Math.abs(f.shap)));
+
+      list.innerHTML = top_features.map((f, i) => `
+        <div class="shap-item" id="shap-${i}">
+          <div class="shap-row">
+            <span class="shap-feat">${f.feature}</span>
+            <span class="shap-val ${f.shap >= 0 ? '' : 'neg'}">${f.shap >= 0 ? '+' : ''}${f.shap.toFixed(4)}</span>
+          </div>
+          <div class="shap-bar-track">
+            <div class="shap-bar-fill ${f.shap >= 0 ? '' : 'neg'}" id="shap-bar-${i}"></div>
+          </div>
+          <div class="shap-explanation">${f.explanation}</div>
+        </div>`).join('');
+
+      top_features.forEach((f, i) => {
+        setTimeout(() => {
+          document.getElementById(`shap-${i}`)?.classList.add('visible');
+          setTimeout(() => {
+            const bar = document.getElementById(`shap-bar-${i}`);
+            if (bar) bar.style.width = `${Math.round(Math.abs(f.shap) / maxShap * 100)}%`;
+          }, 100);
+        }, i * 80);
+      });
+    }
+  }
+</script>
+</body>
+</html>

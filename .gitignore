@@ -1,0 +1,23 @@
+
+data/
+
+
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment
+.env
+venv/
+env/
+
+.DS_Store
+Thumbs.db
+
+outputs/*.png

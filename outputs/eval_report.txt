@@ -1,0 +1,16 @@
+
+==================================================
+  Model Evaluation Report
+==================================================
+  Threshold       : 0.3510
+  AUROC           : 0.8121   (target > 0.80)
+  AUPRC           : 0.0976   (target > 0.30)
+  Recall          : 0.7501   (sensitivity)
+  Specificity     : 0.7162
+  Precision       : 0.0434
+  F1 Score        : 0.0820
+  True Positives  : 3936
+  False Negatives : 1311  (missed sepsis cases)
+  False Positives : 86770  (false alarms)
+  True Negatives  : 218980
+==================================================
