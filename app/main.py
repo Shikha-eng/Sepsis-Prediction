@@ -79,6 +79,14 @@ def health():
         "threshold"    : meta.get("threshold", 0.5),
     }
 
+@app.get("/")
+def root():
+    html_path = Path(__file__).parent.parent / "index.html"
+
+    return {
+        "exists": html_path.exists(),
+        "path": str(html_path)
+    }
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
 def predict_sepsis(vitals: PatientVitals):
